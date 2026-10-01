@@ -1,14 +1,13 @@
-# pyright: reportMissingImports=false
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from backend.database import init_db
-from backend.router import router
+import models
+from database import engine
+from router import router
 
-app = FastAPI(
-    title="Plataforma de Videos API",
-    description="API RESTful para la plataforma de streaming alojada en AWS",
-    version="1.0.0"
-)
+# Crea las tablas en AWS RDS al arrancar
+models.Base.metadata.create_all(bind=engine)
+
+app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
@@ -18,12 +17,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.on_event("startup")
-def on_startup():
-    init_db()
-
+# Incluye las rutas que definiste en router.py
 app.include_router(router)
 
-@app.get("/", tags=["HealthCheck"])
-def root():
-    return {"status": "ok", "message": "API de Plataforma de Videos activa"}
+@app.get("/")
+def read_root():
+    return {"status": "ok", "message": "API conectada a AWS RDS y rutas operativas"}

@@ -1,8 +1,6 @@
 fastapi[standard]
-sqlmodel
+uvicorn
+sqlalchemy
 psycopg2-binary
-boto3
 python-dotenv
-passlib[bcrypt]
-python-multipart
-pydantic[email]
+pydantic
