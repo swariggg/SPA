@@ -1,0 +1,8 @@
+fastapi[standard]
+sqlmodel
+psycopg2-binary
+boto3
+python-dotenv
+passlib[bcrypt]
+python-multipart
+pydantic[email]
