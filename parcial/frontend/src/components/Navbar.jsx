@@ -14,7 +14,7 @@ export const Navbar = () => {
   return (
     <nav className="navbar">
       <Link to="/" className="navbar-logo">
-        🎬 StreamApp
+        yutuuu
       </Link>
       <div className="navbar-links">
         <Link to="/">Inicio</Link>
