@@ -2,13 +2,14 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import models
 from database import engine
-from router import router
+import router
 
-# Crea las tablas en AWS RDS al arrancar
+# Crea las tablas automáticamente en PostgreSQL si no existen
 models.Base.metadata.create_all(bind=engine)
 
-app = FastAPI()
+app = FastAPI(title="Video App API")
 
+# Configurar CORS para permitir peticiones desde React
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -17,9 +18,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Incluye las rutas que definiste en router.py
-app.include_router(router)
+app.include_router(router.router)
 
 @app.get("/")
 def read_root():
-    return {"status": "ok", "message": "API conectada a AWS RDS y rutas operativas"}
+    return {"message": "API corriendo exitosamente"}
