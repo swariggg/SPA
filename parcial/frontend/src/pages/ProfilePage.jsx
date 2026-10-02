@@ -1,16 +1,24 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { apiFetch } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { VideoCard } from '../components/VideoCard';
+
+const API_URL = "http://18.118.162.39:8000";
 
 export const ProfilePage = () => {
   const { id } = useParams();
   const { user } = useAuth();
   const [profileUser, setProfileUser] = useState(null);
   const [userVideos, setUserVideos] = useState([]);
-  const [newVideo, setNewVideo] = useState({ title: '', description: '', video_url: '' });
+  
+  // Campos del formulario
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [videoFile, setVideoFile] = useState(null);
+  const [thumbnailFile, setThumbnailFile] = useState(null);
+  
   const [showModal, setShowModal] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const isOwnProfile = user && user.id === parseInt(id);
@@ -18,12 +26,15 @@ export const ProfilePage = () => {
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        const uData = await apiFetch(`/users/${id}`);
+        const uRes = await fetch(`${API_URL}/users/${id}`);
+        const uData = await uRes.json();
         setProfileUser(uData);
-        const vData = await apiFetch(`/videos/?user_id=${id}`);
+
+        const vRes = await fetch(`${API_URL}/videos/?user_id=${id}`);
+        const vData = await vRes.json();
         setUserVideos(vData);
       } catch (err) {
-        console.error(err);
+        console.error("Error al cargar perfil:", err);
       } finally {
         setLoading(false);
       }
@@ -33,16 +44,46 @@ export const ProfilePage = () => {
 
   const handleCreateVideo = async (e) => {
     e.preventDefault();
+
+    if (!videoFile || !thumbnailFile) {
+      alert("Debes seleccionar tanto un video (.mp4) como una miniatura (.jpg/.png).");
+      return;
+    }
+
+    setUploading(true);
+
     try {
-      const created = await apiFetch('/videos/', {
-        method: 'POST',
-        body: JSON.stringify({ ...newVideo, user_id: user.id }),
+      const formData = new FormData();
+      formData.append("title", title);
+      formData.append("description", description);
+      formData.append("user_id", user.id);
+      formData.append("video_file", videoFile);
+      formData.append("thumbnail_file", thumbnailFile);
+
+      const res = await fetch(`${API_URL}/videos/`, {
+        method: "POST",
+        body: formData,
       });
-      setUserVideos([...userVideos, created]);
-      setNewVideo({ title: '', description: '', video_url: '' });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.detail || "Error al subir el contenido.");
+      }
+
+      const createdVideo = await res.json();
+      setUserVideos([...userVideos, createdVideo]);
+
+      // Reset de campos
+      setTitle('');
+      setDescription('');
+      setVideoFile(null);
+      setThumbnailFile(null);
       setShowModal(false);
+      alert("¡Video e imagen subidos con éxito a AWS S3!");
     } catch (err) {
-      alert('Error al publicar el video');
+      alert(err.message);
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -72,30 +113,52 @@ export const ProfilePage = () => {
                 <label>Título del Video</label>
                 <input
                   type="text"
-                  value={newVideo.title}
-                  onChange={(e) => setNewVideo({ ...newVideo, title: e.target.value })}
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
                   required
                 />
               </div>
+
               <div className="form-group">
-                <label>URL del Video (Enlace de S3 o MP4)</label>
+                <label>Archivo de Video (.mp4)</label>
                 <input
-                  type="url"
-                  value={newVideo.video_url}
-                  onChange={(e) => setNewVideo({ ...newVideo, video_url: e.target.value })}
+                  type="file"
+                  accept="video/*"
+                  onChange={(e) => setVideoFile(e.target.files[0])}
                   required
                 />
               </div>
+
+              <div className="form-group">
+                <label>Imagen de Portada / Miniatura</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setThumbnailFile(e.target.files[0])}
+                  required
+                />
+              </div>
+
               <div className="form-group">
                 <label>Descripción</label>
                 <textarea
-                  value={newVideo.description}
-                  onChange={(e) => setNewVideo({ ...newVideo, description: e.target.value })}
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
                 />
               </div>
+
               <div className="modal-actions">
-                <button type="submit" className="btn-primary">Publicar</button>
-                <button type="button" onClick={() => setShowModal(false)} className="btn-secondary">Cancelar</button>
+                <button type="submit" className="btn-primary" disabled={uploading}>
+                  {uploading ? "Subiendo a S3..." : "Publicar"}
+                </button>
+                <button 
+                  type="button" 
+                  onClick={() => setShowModal(false)} 
+                  className="btn-secondary"
+                  disabled={uploading}
+                >
+                  Cancelar
+                </button>
               </div>
             </form>
           </div>
