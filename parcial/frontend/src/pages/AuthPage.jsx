@@ -1,78 +1,95 @@
-import { useState, useContext } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api } from '../api/client';
-import { AuthContext } from '../context/AuthContext';
+import { useAuth } from '../context/AuthContext';
+import { apiFetch } from '../api/client';
 
-export default function AuthPage() {
+export const AuthPage = () => {
   const [isLogin, setIsLogin] = useState(true);
-  const [formData, setFormData] = useState({ name: '', email: '', password: '' });
+  const [formData, setFormData] = useState({ username: '', email: '', password: '' });
   const [error, setError] = useState('');
-  const { loginUser } = useContext(AuthContext);
+  const { loginUser } = useAuth();
   const navigate = useNavigate();
+
+  const handleChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+
     try {
       if (isLogin) {
-        const user = await api.login({ email: formData.email, password: formData.password });
-        loginUser(user);
+        const res = await apiFetch('/login', {
+          method: 'POST',
+          body: JSON.stringify({ email: formData.email, password: formData.password }),
+        });
+        loginUser(res.user);
+        navigate('/');
       } else {
-        const user = await api.register(formData);
-        loginUser(user);
+        const newUser = await apiFetch('/users/', {
+          method: 'POST',
+          body: JSON.stringify(formData),
+        });
+        loginUser(newUser);
+        navigate('/');
       }
-      navigate('/');
     } catch (err) {
-      setError(err.message);
+      setError(err.message || 'Error al procesar la solicitud');
     }
   };
 
   return (
-    <main style={{ maxWidth: '400px', marginTop: '3rem' }}>
-      <section style={{ border: '1px solid #e2e8f0', padding: '2rem', borderRadius: '8px' }}>
-        <h2 style={{ marginBottom: '1.5rem', textAlign: 'center' }}>
-          {isLogin ? 'Iniciar Sesion' : 'Crear Cuenta'}
-        </h2>
-
-        {error && <p style={{ color: '#ef4444', marginBottom: '1rem', fontSize: '0.9rem' }}>{error}</p>}
-
+    <div className="auth-container">
+      <div className="auth-box">
+        <h2>{isLogin ? 'Iniciar Sesión' : 'Crear Cuenta'}</h2>
+        {error && <div className="error-badge">{error}</div>}
+        
         <form onSubmit={handleSubmit}>
           {!isLogin && (
-            <input
-              type="text"
-              placeholder="Nombre completo"
-              required
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            />
+            <div className="form-group">
+              <label>Nombre de Usuario</label>
+              <input 
+                type="text" 
+                name="username" 
+                value={formData.username} 
+                onChange={handleChange} 
+                required 
+              />
+            </div>
           )}
-          <input
-            type="email"
-            placeholder="Correo electronico"
-            required
-            value={formData.email}
-            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-          />
-          <input
-            type="password"
-            placeholder="Contrasena"
-            required
-            value={formData.password}
-            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-          />
-          <button type="submit">{isLogin ? 'Entrar' : 'Registrarse'}</button>
+          <div className="form-group">
+            <label>Correo Electrónico</label>
+            <input 
+              type="email" 
+              name="email" 
+              value={formData.email} 
+              onChange={handleChange} 
+              required 
+            />
+          </div>
+          <div className="form-group">
+            <label>Contraseña</label>
+            <input 
+              type="password" 
+              name="password" 
+              value={formData.password} 
+              onChange={handleChange} 
+              required 
+            />
+          </div>
+          <button type="submit" className="btn-primary full-width">
+            {isLogin ? 'Entrar' : 'Registrarse'}
+          </button>
         </form>
 
-        <p style={{ marginTop: '1rem', textAlign: 'center', fontSize: '0.9rem', color: '#64748b' }}>
+        <p className="toggle-auth">
           {isLogin ? '¿No tienes cuenta? ' : '¿Ya tienes cuenta? '}
-          <button
-            onClick={() => setIsLogin(!isLogin)}
-            style={{ background: 'none', color: '#10b981', border: 'none', padding: 0, cursor: 'pointer' }}
-          >
-            {isLogin ? 'Registrate aqui' : 'Inicia sesion'}
-          </button>
+          <span onClick={() => { setIsLogin(!isLogin); setError(''); }}>
+            {isLogin ? 'Regístrate aquí' : 'Inicia Sesión'}
+          </span>
         </p>
-      </section>
-    </main>
+      </div>
+    </div>
   );
-}
+};

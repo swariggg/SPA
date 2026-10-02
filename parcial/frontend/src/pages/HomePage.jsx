@@ -1,32 +1,41 @@
-import { useEffect, useState } from 'react';
-import { api } from '../api/client';
-import VideoCard from '../components/VideoCard';
+import React, { useEffect, useState } from 'react';
+import { apiFetch } from '../api/client';
+import { VideoCard } from '../components/VideoCard';
 
-export default function HomePage() {
+export const HomePage = () => {
   const [videos, setVideos] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    api.getVideos()
-      .then(setVideos)
-      .catch(console.error)
-      .finally(() => setLoading(false));
+    const fetchVideos = async () => {
+      try {
+        const data = await apiFetch('/videos/');
+        setVideos(data);
+      } catch (err) {
+        setError('No se pudieron cargar los videos.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchVideos();
   }, []);
 
-  if (loading) return <main><p>Cargando catalogo...</p></main>;
+  if (loading) return <div className="loading">Cargando videos...</div>;
 
   return (
-    <main>
-      <h2 style={{ marginBottom: '1.5rem' }}>Videos Recomendados</h2>
+    <div className="page-container">
+      <h1>Videos Destacados</h1>
+      {error && <p className="error-badge">{error}</p>}
       {videos.length === 0 ? (
-        <p>No hay videos publicados aun.</p>
+        <p style={{ marginTop: '1rem' }}>No hay videos publicados aún. ¡Sé el primero en subir uno!</p>
       ) : (
-        <section className="video-grid">
+        <div className="video-grid">
           {videos.map((vid) => (
             <VideoCard key={vid.id} video={vid} />
           ))}
-        </section>
+        </div>
       )}
-    </main>
+    </div>
   );
-}
+};

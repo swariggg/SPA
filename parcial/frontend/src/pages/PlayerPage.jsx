@@ -1,86 +1,96 @@
-import { useEffect, useState, useContext } from 'react';
-import { useParams } from 'react-router-dom';
-import { api } from '../api/client';
-import { AuthContext } from '../context/AuthContext';
-import VideoCard from '../components/VideoCard';
+import React, { useEffect, useState } from 'react';
+import { useParams, Link } from 'react-router-dom';
+import { apiFetch } from '../api/client';
+import { useAuth } from '../context/AuthContext';
 
-export default function PlayerPage() {
+export const PlayerPage = () => {
   const { id } = useParams();
-  const { user } = useContext(AuthContext);
+  const { user } = useAuth();
   const [video, setVideo] = useState(null);
-  const [recommended, setRecommended] = useState([]);
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    api.getVideoById(id).then(setVideo);
-    api.getComments(id).then(setComments);
-    api.getVideos().then((vids) => setRecommended(vids.filter((v) => v.id !== Number(id))));
+    const loadData = async () => {
+      try {
+        const videoData = await apiFetch(`/videos/${id}`);
+        setVideo(videoData);
+        const commentsData = await apiFetch(`/videos/${id}/comments/`);
+        setComments(commentsData);
+      } catch (err) {
+        setError('Error al cargar la información del video.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
   }, [id]);
 
   const handleCommentSubmit = async (e) => {
     e.preventDefault();
-    if (!user || !newComment.trim()) return;
+    if (!newComment.trim() || !user) return;
 
     try {
-      const created = await api.addComment(id, { content: newComment, user_id: user.id });
-      setComments([...comments, created]);
+      const addedComment = await apiFetch(`/videos/${id}/comments/?user_id=${user.id}`, {
+        method: 'POST',
+        body: JSON.stringify({ text: newComment }),
+      });
+      setComments([...comments, addedComment]);
       setNewComment('');
     } catch (err) {
-      alert(err.message);
+      alert('Error al publicar el comentario');
     }
   };
 
-  if (!video) return <main><p>Cargando reproductor...</p></main>;
+  if (loading) return <div className="loading">Cargando reproductor...</div>;
+  if (error || !video) return <div className="page-container"><p>{error || 'Video no encontrado'}</p></div>;
 
   return (
-    <main className="player-layout">
-      <section>
-        <video src={video.video_url} controls autoPlay style={{ width: '100%', borderRadius: '8px', aspectRatio: '16/9' }} />
-        <h1 style={{ marginTop: '1rem', fontSize: '1.5rem' }}>{video.title}</h1>
-        <p style={{ color: '#64748b', fontSize: '0.9rem', marginBottom: '1rem' }}>
-          {video.views} vistas • Publicado por {video.user_name}
-        </p>
-        <p style={{ padding: '1rem', background: '#f8fafc', borderRadius: '6px', marginBottom: '2rem' }}>
-          {video.description}
-        </p>
+    <div className="page-container player-layout">
+      <div className="video-section">
+        <div className="player-wrapper">
+          <video src={video.video_url} controls autoPlay className="video-player" />
+        </div>
+        <h1 className="video-title-large">{video.title}</h1>
+        <div className="author-info">
+          <span>Publicado por: </span>
+          <Link to={`/profile/${video.user_id}`} className="author-name">
+            {video.owner?.username || `Usuario #${video.user_id}`}
+          </Link>
+        </div>
+        <p className="video-description">{video.description || 'Sin descripción.'}</p>
+      </div>
 
-        <section>
-          <h3>Comentarios ({comments.length})</h3>
-          {user ? (
-            <form onSubmit={handleCommentSubmit} style={{ marginTop: '1rem' }}>
-              <textarea
-                placeholder="Anade un comentario..."
-                rows="3"
-                value={newComment}
-                onChange={(e) => setNewComment(e.target.value)}
-                required
-              />
-              <button type="submit" style={{ alignSelf: 'flex-start' }}>Comentar</button>
-            </form>
-          ) : (
-            <p style={{ marginTop: '0.5rem', color: '#64748b' }}>Inicia sesion para comentar.</p>
-          )}
+      <div className="comments-section">
+        <h2>Comentarios ({comments.length})</h2>
+        {user ? (
+          <form onSubmit={handleCommentSubmit} className="comment-form">
+            <textarea
+              placeholder="Escribe un comentario..."
+              value={newComment}
+              onChange={(e) => setNewComment(e.target.value)}
+              required
+            />
+            <button type="submit" className="btn-primary">Comentar</button>
+          </form>
+        ) : (
+          <p className="login-prompt" style={{ margin: '1rem 0' }}>
+            <Link to="/auth" style={{ color: '#e11d48', fontWeight: 'bold' }}>Inicia sesión</Link> para dejar un comentario.
+          </p>
+        )}
 
-          <section style={{ marginTop: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            {comments.map((c) => (
-              <article key={c.id} style={{ borderBottom: '1px solid #e2e8f0', paddingBottom: '0.5rem' }}>
-                <strong>{c.user_name}</strong>
-                <p style={{ fontSize: '0.95rem' }}>{c.content}</p>
-              </article>
-            ))}
-          </section>
-        </section>
-      </section>
-
-      <aside>
-        <h3 style={{ marginBottom: '1rem' }}>Siguientes videos</h3>
-        <section style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          {recommended.map((vid) => (
-            <VideoCard key={vid.id} video={vid} />
+        <div className="comments-list">
+          {comments.map((c) => (
+            <div key={c.id} className="comment-item">
+              <strong>{c.owner?.username || `Usuario #${c.user_id}`}</strong>
+              <p>{c.text}</p>
+              <small style={{ color: '#94a3b8' }}>{new Date(c.created_at).toLocaleDateString()}</small>
+            </div>
           ))}
-        </section>
-      </aside>
-    </main>
+        </div>
+      </div>
+    </div>
   );
-}
+};
